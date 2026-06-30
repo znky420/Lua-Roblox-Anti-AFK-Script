@@ -1,17 +1,17 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Z I N K | Anti AFK Script",
-   LoadingTitle = "starten...",
+   Name = "ZINK Anti AFK Script",
+   LoadingTitle = "wird geladen...",
    LoadingSubtitle = "by zink",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "zink_Scripts", 
-      FileName = "AntiAFK_Config"
+      FileName = "AntiAFK_Simple"
    },
    KeySystem = true,
    KeySettings = {
-      Title = "zink Access",
+      Title = "ZINK Access",
       Subtitle = "Key System",
       Note = "Join Whatsapp Group for Key: https://whatsapp.com/channel/0029Vb8U5jv8aKvRl4Pp1D0P",
       FileName = "zinkKey", 
@@ -21,96 +21,93 @@ local Window = Rayfield:CreateWindow({
    }
 })
 
--- Variablen für die Logik
-local Layers = {
-    AntiIdled = false,
-    InputSim = false,
-    Jitter = false
-}
+local AntiAFKActive = false
+local StartTime = os.time()
 
--- Tabs
-local TabMain = Window:CreateTab("Protections", 4483362458)
-local TabServer = Window:CreateTab("Server", 4483362458)
-local TabSettings = Window:CreateTab("Einstellungen", 4483362458)
+local function formatTime(seconds)
+    local hours = math.floor(seconds / 3600)
+    local mins = math.floor((seconds % 3600) / 60)
+    local secs = seconds % 60
+    return string.format("%02d:%02d:%02d", hours, mins, secs)
+end
 
------------------------------------------
--- TAB: PROTECTION
------------------------------------------
+local TabMain = Window:CreateTab("Main", 4483362458)
+local TabSettings = Window:CreateTab("Settings", 4483362458)
 
-TabMain:CreateSection("Anti-AFK Layer")
+local TimerLabel = TabMain:CreateLabel("AFK Zeit: 00:00:00")
 
--- Layer 1: Standard Idled Connection
 TabMain:CreateToggle({
-   Name = "Layer 1: Anti-Idled (Basic)",
+   Name = "Anti AFK aktivieren",
    CurrentValue = false,
-   Flag = "AFK_L1",
+   Flag = "MasterAFK",
    Callback = function(Value)
-      Layers.AntiIdled = Value
+      AntiAFKActive = Value
       if Value then
-          game:GetService("Players").LocalPlayer.Idled:Connect(function()
-              if Layers.AntiIdled then
-                  game:GetService("VirtualUser"):CaptureController()
-                  game:GetService("VirtualUser"):ClickButton2(Vector2.new())
-              end
-          end)
+          StartTime = os.time()
+          Rayfield:Notify({Title = "ZINK", Content = "Anti AFK Aktiv", Duration = 3})
       end
    end,
 })
 
--- Layer 2: Virtuelle Eingabe-Simulation
-TabMain:CreateToggle({
-   Name = "Layer 2: Input Simulation (Advanced)",
-   CurrentValue = false,
-   Flag = "AFK_L2",
+task.spawn(function()
+    while task.wait(1) do
+        if AntiAFKActive then
+            local duration = os.time() - StartTime
+            TimerLabel:Set("AFK Zeit: " .. formatTime(duration))
+            
+            local p = game:GetService("Players").LocalPlayer
+            local vu = game:GetService("VirtualUser")
+            
+            vu:CaptureController()
+            vu:ClickButton2(Vector2.new())
+            
+            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                p.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0.01, 0)
+                task.wait(0.1)
+                p.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, -0.01, 0)
+            end
+        else
+            TimerLabel:Set("AFK Zeit: System Inaktiv")
+        end
+    end
+end)
+
+TabSettings:CreateSlider({
+   Name = "WalkSpeed",
+   Range = {16, 250},
+   Increment = 1,
+   CurrentValue = 16,
+   Flag = "WS",
    Callback = function(Value)
-      Layers.InputSim = Value
-      task.spawn(function()
-          while Layers.InputSim do
-              -- Simuliert alle 20 Sekunden einen Klick in die Spielwelt
-              game:GetService("VirtualUser"):Button1Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-              task.wait(1)
-              game:GetService("VirtualUser"):Button1Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-              task.wait(19)
-          end
+      pcall(function()
+         game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
       end)
    end,
 })
 
--- Layer 3: Physics Jitter
-TabMain:CreateToggle({
-   Name = "Layer 3: Character Jitter (Physics)",
-   CurrentValue = false,
-   Flag = "AFK_L3",
-   Callback = function(Value)
-      Layers.Jitter = Value
-      task.spawn(function()
-          while Layers.Jitter do
-              local lp = game.Players.LocalPlayer
-              if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-                  lp.Character.HumanoidRootPart.CFrame = lp.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0.05, 0)
-                  task.wait(0.1)
-                  lp.Character.HumanoidRootPart.CFrame = lp.Character.HumanoidRootPart.CFrame * CFrame.new(0, -0.05, 0)
-              end
-              task.wait(10)
-          end
-      end)
+TabSettings:CreateButton({
+   Name = "FPS Booster",
+   Callback = function()
+       settings().Rendering.QualityLevel = 1
+       for _, v in pairs(game:GetDescendants()) do
+           if v:IsA("Part") or v:IsA("UnionOperation") then
+               v.Material = Enum.Material.SmoothPlastic
+           elseif v:IsA("Decal") then
+               v.Transparency = 1
+           end
+       end
+       Rayfield:Notify({Title = "ZINK", Content = "Grafik optimiert", Duration = 2})
    end,
 })
 
---------------------------------------
--- TAB: SERVER
----------------------------------
-
-TabServer:CreateSection("Server Steuerung")
-
-TabServer:CreateButton({
-   Name = "Rejoin Server",
+TabSettings:CreateButton({
+   Name = "Server Rejoin",
    Callback = function()
        game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
    end,
 })
 
-TabServer:CreateButton({
+TabSettings:CreateButton({
    Name = "Server Hop",
    Callback = function()
        local Http = game:GetService("HttpService")
@@ -126,26 +123,11 @@ TabServer:CreateButton({
    end,
 })
 
+TabSettings:CreateSection("ZINK Info")
+TabSettings:CreateLabel("WhatsApp: https://whatsapp.com/channel/0029Vb8U5jv8aKvRl4Pp1D0P")
 
--- TAB: EINSTELLUNGEN
-
-
-TabSettings:CreateSection("Info")
-
-TabSettings:CreateLabel("https://whatsapp.com/channel/0029Vb8U5jv8aKvRl4Pp1D0P")
-
-TabSettings:CreateSection("Menü")
-
-TabSettings:CreateButton({
-   Name = "Script schließen",
-   Callback = function()
-      Rayfield:Destroy()
-   end,
-})
-
--- Start-Notification
 Rayfield:Notify({
-   Title = "Z I N K geladen",
-   Content = "Gestartet"
+   Title = "ZINK geladen",
+   Content = "Script geladen",
    Duration = 5,
 })
